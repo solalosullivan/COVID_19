@@ -16,8 +16,6 @@ class Population:
         # D(t) denotes the percentage of population that has died
         self.S = [1 - np.sum(I0) - np.sum(R0)]
         self.I = [I0]
-        plt.imshow(I0)
-        plt.show()
         self.V = [0]
         self.R = [R0]
         self.D = [0]
@@ -68,7 +66,7 @@ class EpidemicModel:
         self.R0_max = R0_max  # max of R0
         self.h = h  # threshold for very small values
         self.T = [self.t]  # list of time
-        P = np.zeros((self.N, self.M, self.N, self.M))
+        P = np.zeros((self.N, self.M, self.N, self.M))  # gaussian kernel
         for i in range(N):
             for j in range(M):
                 for k in range(N):
@@ -207,6 +205,10 @@ class EpidemicModel:
                 print("The epidemic starts spreading")
             for t in range(t_max - 1):
                 self.iter()
+                if self.verbose:
+                    plt.imshow(self.population.I[-1])
+                    plt.colorbar()
+                    plt.show()
 
             plt.plot(self.T, self.population.S, label="Susceptible", color="blue")
             plt.plot(self.T, self.population.D, label="Dead", color="black")
