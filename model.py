@@ -6,7 +6,7 @@ from typing import Callable
 
 
 class Population:
-    def __init__(self, N: int, M: int, I0: np.ndarray):
+    def __init__(self, N: int, M: int, I0: np.ndarray, R0: np.ndarray):
         # S(t) = percentage of the population, which is susceptible to be infected, but has not
         # been infected so far
         # I[i,j](t) denotes the number of people infected by variant with transmissibility beta_i and
@@ -14,13 +14,13 @@ class Population:
         # V(t) denotes the part of population vaccinated at time t
         # R[i,j](t) denotes the percentage of population that has recovered from variant (i,j)
         # D(t) denotes the percentage of population that has died
-        self.S = [1 - np.sum(I0)]
+        self.S = [1 - np.sum(I0) - np.sum(R0)]
         self.I = [I0]
         self.V = [0]
-        self.R = [np.zeros((N, M))]
+        self.R = [R0]
         self.D = [0]
         self.r = [np.sum(self.R[0])]  # sum of recovered
-        self.i = [np.sum(self.I[0])]  # sum of ifected
+        self.i = [np.sum(self.I[0])]  # sum of infected
 
 
 class EpidemicModel:
@@ -36,13 +36,20 @@ class EpidemicModel:
         sigma: float,
         C: float,
         h: float,
+        verbose: bool,
+        inf_prop: float = 200e-5,
+        rec_prop: float = 25 / 100,
     ):
-
-        self.population = Population(N, M, self.init_I(N, M))
-        self.n = n  # vaccine rate
-        self.eta = eta  # level of liberty
         self.N = N  # transmissibility step
         self.M = M  # vaccine resistance step
+        self.population = Population(
+            N,
+            M,
+            self.init_I(i0=5, j0=1, prop=inf_prop),
+            self.init_R(i0=5, j0=1, prop=rec_prop),
+        )
+        self.n = n  # vaccine rate
+        self.eta = eta  # level of liberty
         self.beta = (
             R0_max * gamma * np.array([j / (N - 1) for j in range(N)]).reshape((-1, 1))
         )  # transmission rates
@@ -59,11 +66,29 @@ class EpidemicModel:
         self.R0_max = R0_max  # max of R0
         self.h = h  # threshold for very small values
         self.T = [self.t]  # list of time
+        P = np.zeros((self.N, self.M, self.N, self.M))
+        for i in range(N):
+            for j in range(M):
+                for k in range(N):
+                    for l in range(M):
+                        P[i, j, k, l] = (1 / (2 * np.pi * sigma**2)) * np.exp(
+                            -((i - k) ** 2 + (j - l) ** 2) / (2 * sigma**2)
+                        )
+        self.P = P
+        self.verbose = verbose
 
-    def init_I(self, N, M):
-        return 1 / (N * M) ** 2 * np.ones((N, M))  # TODO: change initialization
+    def init_I(self, i0, j0, prop):
+        I = np.zeros((self.N, self.M))
+        I[i0, j0] = prop
+        return I
+
+    def init_R(self, i0, j0, prop):
+        R = np.zeros((self.N, self.M))
+        R[i0, j0] = prop
+        return R
 
     def iter(self):
+
         # Get values at t-1
         S_prev = self.population.S[-1]
         I_prev = self.population.I[-1]
@@ -72,11 +97,6 @@ class EpidemicModel:
         D_prev = self.population.D[-1]
         i_prev = self.population.i[-1]
         r_prev = self.population.r[-1]
-
-        # Noise for mutation
-        P = np.random.normal(
-            0, self.sigma, (self.N, self.M, self.N, self.M)
-        )  # TODO : compute each time?
 
         # Update Susceptible (-n(t) could give negative values)
         self.population.S.append(
@@ -106,7 +126,6 @@ class EpidemicModel:
             )
 
         # Update Recovered
-        print(I_prev, R_prev)
         R_next = (
             R_prev
             + self.gamma * I_prev
@@ -139,15 +158,19 @@ class EpidemicModel:
                 * V_prev
                 - (self.mu + self.gamma) * I_prev
                 - self.eta(self.t) * np.multiply(dotdot(self.ksi, R_prev), I_prev)
-                + psi(dotdot(P, I_prev) - I_prev, self.h)
+                + psi(dotdot(self.P, I_prev) - I_prev, self.h)
             )
             I_next = np.clip(I_next, 0, 1)
             self.population.I.append(infected_prop / np.sum(I_next) * I_next)
         self.population.i.append(max(0, min(infected_prop, 1)))
 
-        print(f"Iteration {self.t} has just finished")
-        print(f"The total proportion of people is {S_prev+i_prev+r_prev+D_prev+V_prev}")
-        print("--------------------------------------")
+        if self.verbose:
+
+            print(f"Iteration {self.t} has just finished")
+            print(
+                f"The total proportion of people is {S_prev+i_prev+r_prev+D_prev+V_prev}"
+            )
+            print("--------------------------------------")
 
         self.t += 1
         self.T.append(self.t)
@@ -175,9 +198,11 @@ class EpidemicModel:
         # Seed noise
         np.random.seed(1)
         if not animation:
-            print("The epidemic starts spreading")
+            if self.verbose:
+                print("The epidemic starts spreading")
             for t in range(t_max - 1):
                 self.iter()
+
             plt.plot(self.T, self.population.S, label="Susceptible", color="blue")
             plt.plot(self.T, self.population.D, label="Dead", color="black")
             plt.plot(self.T, self.population.V, label="Vaccinated", color="g")
