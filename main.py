@@ -1,4 +1,6 @@
 from model import EpidemicModel
+import matplotlib.pyplot as plt
+import numpy as np
 
 # TODO:change definition of these functions to clip values to [0,1]
 def n(t):
@@ -20,12 +22,14 @@ parameters = {
     "R0_max": 15,
     "mu": 0.02,  # 0.02
     "C": 0.5,
-    "sigma": 1 / 1000,  # 1 / 1000,
+    "sigma": 1,
     "h": 1 / 1000,
     "verbose": False,
 }
-t_max = 100
+t_max = 20
 
 if __name__ == "__main__":
     model = EpidemicModel(**parameters)
     model.plot(t_max, animation=True)
+    plt.imshow(model.population.I[-1])
+    plt.show()

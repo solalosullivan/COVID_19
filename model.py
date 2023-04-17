@@ -16,6 +16,8 @@ class Population:
         # D(t) denotes the percentage of population that has died
         self.S = [1 - np.sum(I0) - np.sum(R0)]
         self.I = [I0]
+        plt.imshow(I0)
+        plt.show()
         self.V = [0]
         self.R = [R0]
         self.D = [0]
@@ -161,7 +163,10 @@ class EpidemicModel:
                 + psi(dotdot(self.P, I_prev) - I_prev, self.h)
             )
             I_next = np.clip(I_next, 0, 1)
-            self.population.I.append(infected_prop / np.sum(I_next) * I_next)
+            if np.sum(I_next) == 0:
+                self.population.I.append(np.zeros(I_next.shape))
+            else:
+                self.population.I.append(infected_prop / np.sum(I_next) * I_next)
         self.population.i.append(max(0, min(infected_prop, 1)))
 
         if self.verbose:
