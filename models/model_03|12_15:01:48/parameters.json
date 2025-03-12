@@ -1,0 +1,16 @@
+{
+    "gamma": 0.09,
+    "N": 30,
+    "M": 40,
+    "R0_max": 15,
+    "mu": 0.02,
+    "sigma": 1,
+    "C": 0.5,
+    "h": 1e-06,
+    "verbose": true,
+    "inf_prop": 0.0001,
+    "rec_prop": 0,
+    "t_half_pop_vaccinated": 200,
+    "max_vacc_rate": 0.0033333333333333335,
+    "max_pop_vaccinated_per_day": 0.01
+}
